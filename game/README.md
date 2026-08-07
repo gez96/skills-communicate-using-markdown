@@ -1,46 +1,95 @@
 # 🌱 Pixel Harvest
 
-A small, self-contained **pixel art farming game** built with plain HTML5 Canvas
-and vanilla JavaScript. No build step, no dependencies — just open the file.
+A pixel-art farming game inspired by Stardew Valley — walk your farmer around a
+scrolling world, grow crops, keep animals, and ship your harvest for coins. Built
+with plain HTML5 Canvas and vanilla JavaScript: **no build step, no dependencies.**
 
 ## ▶️ Play
 
-Open [`index.html`](./index.html) in any modern browser (double-click it, or drag it
-into a browser window).
+- **On a computer:** double-click [`index.html`](./index.html) (or drag it into a browser).
+- **On a phone / to share one file:** open [`dist/pixel-harvest.html`](./dist/pixel-harvest.html) —
+  a single self-contained copy generated from the source (see *Building* below).
 
-## 🎮 How to play
+The modules load as ordinary `<script>` tags, so the game runs straight from
+`file://` with no server. A local server also works: `python3 -m http.server`.
 
-| Action | Keys |
+## 🎮 Controls
+
+| Action | How |
 | --- | --- |
-| Move | `WASD` or the **arrow keys** |
-| Use current tool on the tile in front | `Space` / `E` |
-| Use a tool on any tile | **Click** the tile |
-| Select a tool | `1`–`6` or the toolbar buttons |
+| **Move** | On-screen ▲◀▶▼ pad, or `WASD` / arrow keys |
+| **Use held item** | The ✋ button, `Space` / `E`, or **tap a nearby tile** |
+| **Select hotbar item** | Tap a hotbar slot, or number keys `1`–`9` |
+| **Sleep (next day)** | 😴 Sleep button |
+| **Shop / place buildings** | 🛒 Shop button |
+| **Cancel placement** | ✕ button or `Esc` |
 
-### The farming loop
+## 🌾 The loop
 
-1. **⛏️ Hoe** — till a patch of grass into soil.
-2. **🌾 / 🥕 / 🎃 Seeds** — plant a seed in tilled soil.
-3. **💧 Water** — water the crop so it grows faster (watered tiles grow twice as fast that day).
-4. **😴 Sleep / Next Day** — advance a day so crops grow. Water dries overnight.
-5. **🧺 Harvest** — collect ripe crops (they sparkle ✨) for coins.
-6. **🛒 Buy Seeds** — spend coins on more seeds.
+1. **⛏️ Till** grass into soil.
+2. **🌱 Plant** a seed in tilled soil.
+3. **💧 Water** it — watered crops grow **twice as fast** that day.
+4. **😴 Sleep** to advance days; crops grow overnight.
+5. **🧺 Harvest** ripe crops (they ✨ sparkle) into your inventory.
+6. **📦 Ship** crops/produce in the shipping bin — they **sell overnight** and you
+   get a morning summary of your earnings.
+7. **🛒 Buy** more seeds, animals, and buildings with your coins.
 
 ### Crops
 
-| Crop | Grows in | Sells for | Seed cost |
+| Crop | Growth | Sells for | Seeds |
 | --- | --- | --- | --- |
-| 🌾 Wheat | fast | 12 | 4 |
-| 🥕 Carrot | medium | 22 | 8 |
-| 🎃 Pumpkin | slow | 60 | 20 |
+| 🌾 Wheat | fast (3 stages) | 12c | 4c |
+| 🥕 Carrot | medium | 22c | 8c |
+| 🎃 Pumpkin | slow (4 stages) | 60c | 20c |
 
-## 🛠️ Tech
+### Animals & buildings
 
-Everything lives in a single [`index.html`](./index.html):
+Buy a **🐔 Coop** or **🐄 Barn** from the shop, then place it on clear ground.
+Buy animals into them, feed them **🌿 hay** each day, and the next morning they
+leave **🥚 eggs / 🥛 milk** on the ground — walk over them to collect, then ship
+them. You can also place extra **📦 shipping bins** and **🪵 fences**.
 
-- Rendering: `<canvas>` with `image-rendering: pixelated` for crisp pixel art.
-- Sprites (player, soil, crops) are drawn procedurally with rectangles — no image assets.
-- Game state (coins, day, inventory, per-tile crop data) is plain JavaScript objects.
+Progress **auto-saves** to your browser each time you sleep. Use **🔄 Reset** to
+start a brand-new farm.
 
-Ideas for extending it: save progress to `localStorage`, add seasons/weather,
-a fence and animals, or an actual sprite sheet.
+## 🗂️ Project structure
+
+The game is split into small modules under `js/`, each attaching to one global
+`App` namespace (classic scripts, so it still runs by double-click):
+
+```
+game/
+  index.html        # canvas, HUD, hotbar, touch controls; loads the modules in order
+  js/
+    config.js       # constants + data tables (crops, items, buildings, animals)
+    state.js        # central state, new game, save/load (localStorage)
+    world.js        # tilemap generation, collision, building placement
+    inventory.js    # slot-based inventory / hotbar
+    crops.js        # till / plant / water / harvest + overnight growth
+    shipping.js     # shipping bin + overnight sale
+    animals.js      # livestock: wander, feed, produce
+    player.js       # smooth movement, collision, camera, pickups
+    render.js       # camera-based drawing of the whole scene (procedural pixel sprites)
+    ui.js           # HUD, hotbar, toast, shop & morning panels
+    input.js        # keyboard, tap-to-act, touch d-pad + action button
+    game.js         # bootstrap, main loop, and the actions tying systems together
+  dist/
+    pixel-harvest.html  # generated single-file build (for phones / sharing)
+  build.mjs         # inlines everything into dist/pixel-harvest.html
+```
+
+## 🛠️ Building the single-file version
+
+```bash
+node game/build.mjs   # writes game/dist/pixel-harvest.html
+```
+
+All sprites are drawn procedurally with canvas rectangles/shapes — there are no
+image assets, keeping the whole game a single dependency-free deliverable.
+
+## 🚜 Possible next steps
+
+Seasons & weather, energy/stamina, tool upgrades, NPCs & relationships, and
+mining/fishing were intentionally left out of this version — they're natural
+future additions.

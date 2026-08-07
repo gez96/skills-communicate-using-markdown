@@ -1,0 +1,1619 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>Pixel Harvest 🌱</title>
+<style>
+  :root {
+    --panel: #2b2140;
+    --panel-2: #3a2d55;
+    --ink: #f4ecd6;
+    --accent: #8fd66b;
+    --accent-2: #ffcf5c;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    min-height: 100%;
+    background: #1a1226;
+    color: var(--ink);
+    font-family: "Courier New", monospace;
+    -webkit-font-smoothing: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  #app {
+    min-height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    padding: 12px;
+  }
+  h1 {
+    margin: 4px 0 0;
+    font-size: 22px;
+    letter-spacing: 2px;
+    color: var(--accent-2);
+    text-shadow: 2px 2px 0 #000;
+  }
+  #hud { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+  .chip {
+    background: var(--panel);
+    border: 2px solid #000;
+    box-shadow: 3px 3px 0 #000;
+    padding: 6px 10px;
+    font-size: 13px;
+    white-space: nowrap;
+  }
+  .chip b { color: var(--accent-2); }
+
+  #stage {
+    position: relative;
+    border: 4px solid #000;
+    box-shadow: 6px 6px 0 #000;
+    background: #000;
+    width: min(480px, 92vw);
+    touch-action: none;
+  }
+  canvas {
+    display: block;
+    width: 100%;
+    height: auto;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+  }
+
+  #toast {
+    position: absolute; left: 50%; top: 8px; transform: translateX(-50%);
+    background: rgba(0,0,0,0.78); padding: 6px 12px; font-size: 12px;
+    border: 2px solid var(--accent); opacity: 0; transition: opacity .2s;
+    pointer-events: none; white-space: nowrap; max-width: 94%; overflow: hidden; text-overflow: ellipsis;
+  }
+  #toast.show { opacity: 1; }
+
+  /* ---- Touch controls overlaid on the stage ---- */
+  #dpad {
+    position: absolute; left: 10px; bottom: 10px;
+    display: grid; grid-template-columns: repeat(3, 34px); grid-template-rows: repeat(3, 34px);
+    gap: 3px; opacity: 0.82;
+  }
+  .dbtn {
+    background: rgba(43,33,64,0.9); border: 2px solid #000; color: var(--ink);
+    font-size: 15px; display: flex; align-items: center; justify-content: center;
+    cursor: pointer; touch-action: none;
+  }
+  .dbtn:active { background: var(--accent); color: #14210a; }
+  #d-up { grid-area: 1 / 2; }
+  #d-left { grid-area: 2 / 1; }
+  #d-right { grid-area: 2 / 3; }
+  #d-down { grid-area: 3 / 2; }
+  #btn-action {
+    position: absolute; right: 12px; bottom: 14px;
+    width: 62px; height: 62px; border-radius: 50%;
+    background: rgba(143,214,107,0.92); border: 3px solid #000; box-shadow: 3px 3px 0 #000;
+    color: #14210a; font-size: 22px; cursor: pointer; touch-action: none;
+  }
+  #btn-action:active { transform: translate(2px,2px); box-shadow: 1px 1px 0 #000; }
+
+  /* ---- Hotbar ---- */
+  #hotbar {
+    display: grid; grid-template-columns: repeat(12, 1fr); gap: 4px;
+    width: min(480px, 92vw);
+  }
+  .slot {
+    position: relative; aspect-ratio: 1 / 1;
+    background: var(--panel-2); border: 2px solid #000; box-shadow: 2px 2px 0 #000;
+    display: flex; align-items: center; justify-content: center; cursor: pointer;
+    font-size: clamp(11px, 3.2vw, 18px);
+  }
+  .slot.active { background: var(--accent-2); box-shadow: inset 0 0 0 2px #000; }
+  .slot .ct {
+    position: absolute; right: 1px; bottom: 0px; font-size: 10px; color: #fff;
+    text-shadow: 1px 1px 0 #000; font-family: "Courier New", monospace;
+  }
+  #selbar { font-size: 12px; opacity: 0.85; }
+  #selbar b { color: var(--accent-2); }
+
+  /* ---- Buttons ---- */
+  #tools { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+  .tool {
+    background: var(--panel-2); border: 2px solid #000; box-shadow: 3px 3px 0 #000;
+    color: var(--ink); padding: 8px 12px; font-family: inherit; font-size: 13px; cursor: pointer;
+  }
+  .tool:active { transform: translate(2px,2px); box-shadow: 1px 1px 0 #000; }
+  #btn-sleep { background: #6a86c8; color: #10182e; }
+  #btn-shop { background: var(--accent); color: #14210a; }
+  #btn-cancel { background: #e0605a; color: #240b0a; display: none; }
+
+  /* ---- Overlays (shop / morning) ---- */
+  .overlay {
+    position: absolute; inset: 0; background: rgba(10,6,18,0.86);
+    display: none; align-items: center; justify-content: center; padding: 12px;
+  }
+  .overlay.show { display: flex; }
+  .modal {
+    background: var(--panel); border: 3px solid #000; box-shadow: 5px 5px 0 #000;
+    width: 100%; max-width: 380px; max-height: 92%; overflow-y: auto; padding: 12px;
+  }
+  .modal h2 { margin: 0 0 8px; font-size: 16px; color: var(--accent-2); letter-spacing: 1px; }
+  .shop-head { margin: 10px 0 4px; font-size: 12px; opacity: 0.8; border-bottom: 1px solid #000; padding-bottom: 2px; }
+  .shop-row { display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: 13px; }
+  .shop-emo { width: 20px; text-align: center; }
+  .shop-name { flex: 1; }
+  .shop-cost { color: var(--accent-2); font-size: 12px; }
+  .shop-buy {
+    background: var(--accent); border: 2px solid #000; color: #14210a;
+    font-family: inherit; font-size: 12px; padding: 3px 8px; cursor: pointer;
+  }
+  .shop-buy:disabled { background: #555; color: #999; cursor: not-allowed; }
+  .modal .close {
+    margin-top: 10px; width: 100%; background: var(--panel-2); border: 2px solid #000;
+    color: var(--ink); font-family: inherit; font-size: 13px; padding: 8px; cursor: pointer;
+  }
+  #morning-text { font-size: 14px; line-height: 1.8; text-align: center; }
+
+  #help {
+    font-size: 12px; opacity: 0.75; max-width: 520px; text-align: center; line-height: 1.6;
+  }
+  kbd { background: #000; border: 1px solid #555; border-radius: 3px; padding: 1px 5px; font-size: 11px; }
+</style>
+</head>
+<body>
+<div id="app">
+  <h1>🌱 PIXEL HARVEST</h1>
+
+  <div id="hud">
+    <div class="chip">💰 <b id="coins">0</b></div>
+    <div class="chip">📅 Day <b id="day">1</b></div>
+    <div class="chip">📦 Bin <b id="bin">0</b></div>
+  </div>
+
+  <div id="stage">
+    <canvas id="game" width="480" height="480"></canvas>
+    <div id="toast"></div>
+
+    <!-- touch controls -->
+    <div id="dpad">
+      <div class="dbtn" id="d-up" data-dir="up">▲</div>
+      <div class="dbtn" id="d-left" data-dir="left">◀</div>
+      <div class="dbtn" id="d-right" data-dir="right">▶</div>
+      <div class="dbtn" id="d-down" data-dir="down">▼</div>
+    </div>
+    <button id="btn-action">✋</button>
+
+    <!-- shop -->
+    <div class="overlay" id="shop-panel">
+      <div class="modal">
+        <h2>🛒 General Store</h2>
+        <div id="shop-list"></div>
+        <button class="close" id="shop-close">Close</button>
+      </div>
+    </div>
+
+    <!-- morning summary -->
+    <div class="overlay" id="morning">
+      <div class="modal">
+        <h2>🌅 A New Day</h2>
+        <div id="morning-text"></div>
+        <button class="close" id="morning-ok">Start the day</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="hotbar"></div>
+  <div id="selbar">Holding: <b id="selname">—</b></div>
+
+  <div id="tools">
+    <button class="tool" id="btn-sleep">😴 Sleep</button>
+    <button class="tool" id="btn-shop">🛒 Shop</button>
+    <button class="tool" id="btn-cancel">✕ Cancel place</button>
+    <button class="tool" id="btn-reset">🔄 Reset</button>
+  </div>
+
+  <div id="help">
+    <b>Move:</b> on-screen pad or <kbd>WASD</kbd>/arrows. <b>Act:</b> the ✋ button, <kbd>Space</kbd>, or
+    <b>tap a nearby tile</b>. Pick a hotbar item by tapping it (or <kbd>1</kbd>–<kbd>9</kbd>).<br />
+    Loop: ⛏️ till → 🌱 plant → 💧 water → 😴 sleep → 🧺 harvest → 📦 ship to sell. Buy seeds, animals &amp;
+    buildings at the 🛒 Shop; feed 🌿 hay to animals for 🥚/🥛.
+  </div>
+</div>
+
+<!-- ordered classic scripts (no build step; works from file://) -->
+<script>
+// config.js — constants and data tables for Pixel Harvest.
+// Everything hangs off a single global `App` namespace so the files can be
+// loaded as ordinary <script src> tags (works over file://, no build step).
+window.App = window.App || {};
+
+App.config = {
+  TILE: 32,
+  VIEW_COLS: 15,
+  VIEW_ROWS: 15,
+  WORLD_COLS: 40,
+  WORLD_ROWS: 40,
+  PLAYER_SPEED: 2.6,      // world px per frame at 60fps
+  PICKUP_RADIUS: 26,      // px — auto-collect ground items within this range
+  HOTBAR_SLOTS: 12,
+  SAVE_KEY: "pixel-harvest-save-v1",
+
+  // Crops: multi-stage growth. growDays = "progress" units needed per stage;
+  // watering adds 2 progress/day instead of 1 (so watered crops grow 2x faster).
+  CROPS: {
+    wheat:   { name: "Wheat",   emoji: "🌾", stages: 3, growDays: 2, color: "#e8c86a", ripe: "#f5d97a" },
+    carrot:  { name: "Carrot",  emoji: "🥕", stages: 3, growDays: 3, color: "#ff8c3b", ripe: "#ff7a1f" },
+    pumpkin: { name: "Pumpkin", emoji: "🎃", stages: 4, growDays: 5, color: "#ff9a3d", ripe: "#ff7d12" },
+  },
+
+  // Every carriable thing. `type` drives behaviour; `price` is the shipping value.
+  ITEMS: {
+    // tools (not stackable, not sold)
+    hoe:          { type: "tool",   name: "Hoe",           emoji: "⛏️" },
+    watering_can: { type: "tool",   name: "Watering Can",  emoji: "💧" },
+    basket:       { type: "tool",   name: "Basket",        emoji: "🧺" },
+    // seeds (stackable)
+    wheat_seed:   { type: "seed", crop: "wheat",   name: "Wheat Seeds",   emoji: "🌾", price: 4,  buy: 4 },
+    carrot_seed:  { type: "seed", crop: "carrot",  name: "Carrot Seeds",  emoji: "🥕", price: 8,  buy: 8 },
+    pumpkin_seed: { type: "seed", crop: "pumpkin", name: "Pumpkin Seeds", emoji: "🎃", price: 20, buy: 20 },
+    // harvested crops (stackable, shippable)
+    wheat:        { type: "crop", name: "Wheat",   emoji: "🌾", price: 12, stackable: true },
+    carrot:       { type: "crop", name: "Carrot",  emoji: "🥕", price: 22, stackable: true },
+    pumpkin:      { type: "crop", name: "Pumpkin", emoji: "🎃", price: 60, stackable: true },
+    // animal produce (stackable, shippable)
+    egg:          { type: "produce", name: "Egg",  emoji: "🥚", price: 20, stackable: true },
+    milk:         { type: "produce", name: "Milk", emoji: "🥛", price: 45, stackable: true },
+    // feed (stackable)
+    hay:          { type: "feed", name: "Hay", emoji: "🌿", price: 0, buy: 5, stackable: true },
+  },
+
+  // Placeable structures. w/h in tiles. `solid` blocks walking.
+  BUILDINGS: {
+    coop:         { name: "Coop",        emoji: "🐔", w: 4, h: 3, buy: 500, houses: "chicken", capacity: 4, color: "#b9754a" },
+    barn:         { name: "Barn",        emoji: "🐄", w: 5, h: 4, buy: 800, houses: "cow",     capacity: 4, color: "#a94b3a" },
+    shipping_bin: { name: "Shipping Bin", emoji: "📦", w: 1, h: 1, buy: 250, color: "#6b8f3a" },
+    fence:        { name: "Fence",       emoji: "🪵", w: 1, h: 1, buy: 10,  color: "#7a5230" },
+  },
+
+  ANIMALS: {
+    chicken: { name: "Chicken", emoji: "🐔", produce: "egg",  buy: 100, color: "#f4f0e2", speed: 0.5, roam: 3 },
+    cow:     { name: "Cow",     emoji: "🐄", produce: "milk", buy: 250, color: "#f0e9df", speed: 0.4, roam: 4 },
+  },
+
+  STARTING_COINS: 180,
+};
+
+</script>
+<script>
+// world.js — tilemap generation, tile queries, collision, building placement.
+window.App = window.App || {};
+
+(function () {
+  const C = App.config;
+
+  // Deterministic RNG (mulberry32) so the terrain is identical every load and
+  // we only need to persist the mutable farm tiles, not the whole map.
+  function mulberry32(seed) {
+    return function () {
+      seed |= 0; seed = (seed + 0x6D2B79F5) | 0;
+      let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  function makeTile(type) {
+    // Farm fields (tilled/crop) live directly on the tile.
+    return { type: type, tilled: false, watered: false, crop: null, grow: 0, prog: 0 };
+  }
+
+  // Build the base terrain. Returns { tiles, cols, rows }.
+  function generate() {
+    const cols = C.WORLD_COLS, rows = C.WORLD_ROWS;
+    const rng = mulberry32(1337);
+    const tiles = [];
+    for (let y = 0; y < rows; y++) {
+      const row = [];
+      for (let x = 0; x < cols; x++) row.push(makeTile("grass"));
+      tiles.push(row);
+    }
+
+    // The farm plot — kept clear of obstacles so there is room to plant.
+    const farmZone = { x0: 3, y0: 3, x1: 22, y1: 24 };
+    const inFarm = (x, y) => x >= farmZone.x0 && x <= farmZone.x1 && y >= farmZone.y0 && y <= farmZone.y1;
+
+    // A dirt path running down the middle of the farm.
+    for (let y = 4; y < 24; y++) tiles[y][12].type = "path";
+    for (let x = 6; x < 18; x++) tiles[10][x].type = "path";
+
+    // A pond (solid water) off to the east.
+    const pond = { cx: 30, cy: 9, r: 3 };
+    for (let y = pond.cy - pond.r - 1; y <= pond.cy + pond.r + 1; y++) {
+      for (let x = pond.cx - pond.r - 1; x <= pond.cx + pond.r + 1; x++) {
+        if (x < 0 || y < 0 || x >= cols || y >= rows) continue;
+        const d = Math.hypot(x - pond.cx, y - pond.cy);
+        if (d <= pond.r + rng() * 0.6) tiles[y][x].type = "water";
+      }
+    }
+
+    // Scatter trees and rocks outside the farm zone as solid scenery.
+    let trees = 46, rocks = 26, guard = 0;
+    while ((trees > 0 || rocks > 0) && guard++ < 4000) {
+      const x = Math.floor(rng() * cols), y = Math.floor(rng() * rows);
+      const t = tiles[y][x];
+      if (t.type !== "grass" || inFarm(x, y)) continue;
+      if (trees > 0) { t.type = "tree"; trees--; }
+      else if (rocks > 0) { t.type = "rock"; rocks--; }
+    }
+
+    return { tiles: tiles, cols: cols, rows: rows };
+  }
+
+  function tileAt(x, y) {
+    const w = App.state.world;
+    if (!w || x < 0 || y < 0 || x >= w.cols || y >= w.rows) return null;
+    return w.tiles[y][x];
+  }
+
+  // Solid = cannot walk onto. Buildings mark their footprint solid via a set.
+  function isSolidTile(x, y) {
+    const t = tileAt(x, y);
+    if (!t) return true; // world border
+    if (t.type === "water" || t.type === "tree" || t.type === "rock") return true;
+    if (App.world.buildingAt(x, y)) return true;
+    return false;
+  }
+
+  function buildingAt(x, y) {
+    const bs = App.state.buildings;
+    for (let i = 0; i < bs.length; i++) {
+      const b = bs[i];
+      if (x >= b.x && x < b.x + b.w && y >= b.y && y < b.y + b.h) return b;
+    }
+    return null;
+  }
+
+  // Can a w×h building be placed with its top-left at (x,y)?
+  function canPlace(type, x, y) {
+    const def = C.BUILDINGS[type];
+    if (!def) return false;
+    for (let dy = 0; dy < def.h; dy++) {
+      for (let dx = 0; dx < def.w; dx++) {
+        const tx = x + dx, ty = y + dy;
+        const t = tileAt(tx, ty);
+        if (!t) return false;
+        if (t.type !== "grass" && t.type !== "path") return false;
+        if (t.crop) return false;
+        if (buildingAt(tx, ty)) return false;
+      }
+    }
+    return true;
+  }
+
+  function placeBuilding(type, x, y) {
+    const def = C.BUILDINGS[type];
+    const b = { id: "b" + Date.now() + Math.floor(Math.random() * 999), type: type, x: x, y: y, w: def.w, h: def.h };
+    App.state.buildings.push(b);
+    return b;
+  }
+
+  App.world = {
+    generate: generate,
+    makeTile: makeTile,
+    tileAt: tileAt,
+    isSolidTile: isSolidTile,
+    buildingAt: buildingAt,
+    canPlace: canPlace,
+    placeBuilding: placeBuilding,
+  };
+})();
+
+</script>
+<script>
+// inventory.js — slot-based hotbar inventory. Slots hold {id, count} or null.
+window.App = window.App || {};
+
+(function () {
+  const C = App.config;
+
+  function def(id) { return C.ITEMS[id] || null; }
+  function isStackable(id) { const d = def(id); return !!(d && d.stackable); }
+
+  function slots() { return App.state.inventory; }
+
+  function findSlot(id) {
+    const s = slots();
+    for (let i = 0; i < s.length; i++) if (s[i] && s[i].id === id) return i;
+    return -1;
+  }
+
+  function firstEmpty() {
+    const s = slots();
+    for (let i = 0; i < s.length; i++) if (!s[i]) return i;
+    return -1;
+  }
+
+  function countOf(id) {
+    return slots().reduce((n, sl) => n + (sl && sl.id === id ? sl.count : 0), 0);
+  }
+
+  // Add count of id. Stackables merge into one slot; others take empty slots.
+  // Returns how many could NOT be added (0 = all fit).
+  function add(id, count) {
+    count = count || 1;
+    const s = slots();
+    if (isStackable(id)) {
+      let i = findSlot(id);
+      if (i === -1) i = firstEmpty();
+      if (i === -1) return count;
+      s[i] = s[i] || { id: id, count: 0 };
+      s[i].count += count;
+      return 0;
+    }
+    while (count > 0) {
+      const i = firstEmpty();
+      if (i === -1) break;
+      s[i] = { id: id, count: 1 };
+      count--;
+    }
+    return count;
+  }
+
+  // Remove up to count of id (searching all slots). Returns amount removed.
+  function remove(id, count) {
+    count = count || 1;
+    const s = slots();
+    let removed = 0;
+    for (let i = 0; i < s.length && removed < count; i++) {
+      if (!s[i] || s[i].id !== id) continue;
+      const take = Math.min(s[i].count, count - removed);
+      s[i].count -= take;
+      removed += take;
+      if (s[i].count <= 0) s[i] = null;
+    }
+    return removed;
+  }
+
+  function selectedSlot() { return slots()[App.state.selected] || null; }
+  function selectedId() { const sl = selectedSlot(); return sl ? sl.id : null; }
+  function selectedDef() { const id = selectedId(); return id ? def(id) : null; }
+
+  // Remove one unit from the currently selected slot (for consumables/seeds).
+  function consumeSelected(n) {
+    n = n || 1;
+    const sl = selectedSlot();
+    if (!sl) return 0;
+    const take = Math.min(sl.count, n);
+    sl.count -= take;
+    if (sl.count <= 0) slots()[App.state.selected] = null;
+    return take;
+  }
+
+  function select(i) {
+    if (i >= 0 && i < slots().length) App.state.selected = i;
+  }
+
+  App.inventory = {
+    def: def, isStackable: isStackable, findSlot: findSlot, firstEmpty: firstEmpty,
+    countOf: countOf, add: add, remove: remove,
+    selectedSlot: selectedSlot, selectedId: selectedId, selectedDef: selectedDef,
+    consumeSelected: consumeSelected, select: select,
+  };
+})();
+
+</script>
+<script>
+// state.js — central game state, new game, and save/load (localStorage).
+window.App = window.App || {};
+
+(function () {
+  const C = App.config;
+
+  App.state = null;
+
+  function newGame() {
+    const world = App.world.generate();
+    const inv = new Array(C.HOTBAR_SLOTS).fill(null);
+    // Starting kit: the three tools plus a few seeds.
+    inv[0] = { id: "hoe", count: 1 };
+    inv[1] = { id: "watering_can", count: 1 };
+    inv[2] = { id: "basket", count: 1 };
+    inv[3] = { id: "wheat_seed", count: 6 };
+    inv[4] = { id: "carrot_seed", count: 3 };
+
+    App.state = {
+      version: 1,
+      coins: C.STARTING_COINS,
+      day: 1,
+      world: world,
+      player: { wx: 8 * C.TILE + C.TILE / 2, wy: 13 * C.TILE, dir: "down", moving: false, frame: 0, animT: 0 },
+      buildings: [],
+      animals: [],
+      inventory: inv,
+      selected: 0,
+      shipping: [],       // [{id, count}] awaiting overnight sale
+      groundItems: [],    // [{id, wx, wy}] to walk over and collect
+      placing: null,      // building type currently being placed
+      cam: { x: 0, y: 0 },
+      morning: null,      // summary text shown after sleeping
+    };
+
+    // A shipping bin near the house so you can sell from day one.
+    App.world.placeBuilding("shipping_bin", 10, 12);
+    return App.state;
+  }
+
+  // ---- Persistence ----------------------------------------------------------
+  // The base terrain is deterministic, so we only store mutable farm tiles plus
+  // the dynamic entities. On load we regenerate terrain and re-apply overrides.
+  function serialize() {
+    const s = App.state;
+    const tileOverrides = [];
+    for (let y = 0; y < s.world.rows; y++) {
+      for (let x = 0; x < s.world.cols; x++) {
+        const t = s.world.tiles[y][x];
+        if (t.tilled || t.crop) {
+          tileOverrides.push({ x, y, tilled: t.tilled, watered: t.watered, crop: t.crop, grow: t.grow, prog: t.prog });
+        }
+      }
+    }
+    return JSON.stringify({
+      version: s.version, coins: s.coins, day: s.day,
+      player: s.player, buildings: s.buildings, animals: s.animals,
+      inventory: s.inventory, selected: s.selected,
+      shipping: s.shipping, groundItems: s.groundItems,
+      tileOverrides: tileOverrides,
+    });
+  }
+
+  function save() {
+    try { localStorage.setItem(C.SAVE_KEY, serialize()); return true; }
+    catch (e) { return false; }
+  }
+
+  function load() {
+    let raw;
+    try { raw = localStorage.getItem(C.SAVE_KEY); } catch (e) { return false; }
+    if (!raw) return false;
+    let d;
+    try { d = JSON.parse(raw); } catch (e) { return false; }
+    if (!d || d.version !== 1) return false;
+
+    const world = App.world.generate();
+    // Re-apply the saved farm tiles onto fresh terrain.
+    (d.tileOverrides || []).forEach((o) => {
+      const t = world.tiles[o.y] && world.tiles[o.y][o.x];
+      if (!t) return;
+      t.type = "grass";
+      t.tilled = o.tilled; t.watered = o.watered;
+      t.crop = o.crop; t.grow = o.grow; t.prog = o.prog || 0;
+    });
+
+    App.state = {
+      version: 1,
+      coins: d.coins, day: d.day, world: world,
+      player: d.player,
+      buildings: d.buildings || [],
+      animals: d.animals || [],
+      inventory: d.inventory || new Array(C.HOTBAR_SLOTS).fill(null),
+      selected: d.selected || 0,
+      shipping: d.shipping || [],
+      groundItems: d.groundItems || [],
+      placing: null,
+      cam: { x: 0, y: 0 },
+      morning: null,
+    };
+    return true;
+  }
+
+  function reset() {
+    try { localStorage.removeItem(C.SAVE_KEY); } catch (e) {}
+    newGame();
+  }
+
+  App.stateApi = { newGame: newGame, save: save, load: load, reset: reset, serialize: serialize };
+})();
+
+</script>
+<script>
+// crops.js — tilling, planting, watering, harvesting, and overnight growth.
+// Ported from the original useToolAt/nextDay logic, now driven by the selected
+// inventory item and operating on the world tilemap.
+window.App = window.App || {};
+
+(function () {
+  const C = App.config;
+
+  function ripe(t) { return t.crop && t.grow >= C.CROPS[t.crop].stages; }
+
+  // Act on tile (tx,ty) with the currently selected item. Returns a toast string.
+  function useOnTile(tx, ty) {
+    const t = App.world.tileAt(tx, ty);
+    if (!t) return null;
+    if (App.world.buildingAt(tx, ty)) return null;
+    if (t.type === "water" || t.type === "tree" || t.type === "rock") return null;
+
+    const item = App.inventory.selectedDef();
+    const id = App.inventory.selectedId();
+    if (!item) return "Nothing selected.";
+
+    // Tools ------------------------------------------------------------------
+    if (id === "hoe") {
+      if (t.crop) return "Something's growing here!";
+      if (t.type !== "grass") return "Can't till that.";
+      if (t.tilled) return "Already tilled.";
+      t.tilled = true;
+      return "Tilled the soil. 🟫";
+    }
+    if (id === "watering_can") {
+      if (!t.tilled) return "Till the soil first.";
+      if (t.watered) return "Already watered.";
+      t.watered = true;
+      return "Watered! 💧";
+    }
+    if (id === "basket") {
+      if (ripe(t)) {
+        const crop = t.crop;
+        App.inventory.add(crop, 1);
+        t.crop = null; t.grow = 0; t.prog = 0; t.tilled = false; t.watered = false;
+        const c = C.CROPS[crop];
+        return "Harvested " + c.name + " " + c.emoji + " → basket";
+      }
+      if (t.crop) return "Not ripe yet.";
+      return "Nothing to harvest.";
+    }
+
+    // Seeds ------------------------------------------------------------------
+    if (item.type === "seed") {
+      if (!t.tilled) return "Till the soil first (⛏️).";
+      if (t.crop) return "Already planted here.";
+      t.crop = item.crop; t.grow = 0; t.prog = 0;
+      App.inventory.consumeSelected(1);
+      return "Planted " + C.CROPS[item.crop].name + " " + C.CROPS[item.crop].emoji;
+    }
+
+    return "Can't use that here.";
+  }
+
+  // Advance all crops one day. Watered tiles gain 2 progress, else 1.
+  function growOvernight() {
+    const w = App.state.world;
+    for (let y = 0; y < w.rows; y++) {
+      for (let x = 0; x < w.cols; x++) {
+        const t = w.tiles[y][x];
+        if (t.crop) {
+          const c = C.CROPS[t.crop];
+          t.prog = (t.prog || 0) + (t.watered ? 2 : 1);
+          while (t.prog >= c.growDays && t.grow < c.stages) {
+            t.prog -= c.growDays;
+            t.grow++;
+          }
+        }
+        t.watered = false; // dries overnight
+      }
+    }
+  }
+
+  App.crops = { useOnTile: useOnTile, growOvernight: growOvernight, ripe: ripe };
+})();
+
+</script>
+<script>
+// shipping.js — the shipping bin. Deposit stacks by day; they sell overnight.
+window.App = window.App || {};
+
+(function () {
+  const C = App.config;
+
+  function isShippable(id) {
+    const d = C.ITEMS[id];
+    return !!(d && (d.type === "crop" || d.type === "produce") && d.price > 0);
+  }
+
+  // Deposit the whole selected stack into the bin. Returns a toast string.
+  function depositSelected() {
+    const sl = App.inventory.selectedSlot();
+    if (!sl) return "Nothing to ship.";
+    if (!isShippable(sl.id)) return "That can't be shipped.";
+    const id = sl.id, count = sl.count;
+    App.inventory.remove(id, count);
+    // Merge into the bin.
+    const bin = App.state.shipping;
+    const existing = bin.find((e) => e.id === id);
+    if (existing) existing.count += count; else bin.push({ id: id, count: count });
+    const d = C.ITEMS[id];
+    return "Shipped " + count + "x " + d.name + " " + d.emoji;
+  }
+
+  // Sell everything in the bin. Returns { coins, summary } and clears the bin.
+  function sellOvernight() {
+    const bin = App.state.shipping;
+    if (!bin.length) return { coins: 0, summary: "" };
+    let total = 0;
+    const parts = [];
+    bin.forEach((e) => {
+      const d = C.ITEMS[e.id];
+      const sub = d.price * e.count;
+      total += sub;
+      parts.push(e.count + "x " + d.name);
+    });
+    App.state.coins += total;
+    App.state.shipping = [];
+    return { coins: total, summary: "Sold " + parts.join(", ") + " → +" + total + "c" };
+  }
+
+  App.shipping = { isShippable: isShippable, depositSelected: depositSelected, sellOvernight: sellOvernight };
+})();
+
+</script>
+<script>
+// animals.js — livestock that live by their building, get fed, and produce goods.
+window.App = window.App || {};
+
+(function () {
+  const C = App.config;
+  const T = C.TILE;
+
+  function buildingById(id) { return App.state.buildings.find((b) => b.id === id) || null; }
+
+  function homeCenter(a) {
+    const b = buildingById(a.home);
+    if (!b) return { x: a.wx, y: a.wy, roam: 3 * T };
+    return { x: (b.x + b.w / 2) * T, y: (b.y + b.h + 1) * T, roam: (C.ANIMALS[a.type].roam) * T };
+  }
+
+  // Try to buy an animal of `type`; needs a matching building with free space.
+  function buy(type) {
+    const def = C.ANIMALS[type];
+    if (!def) return "Unknown animal.";
+    if (App.state.coins < def.buy) return "Not enough coins (need " + def.buy + ").";
+    // Which building houses this animal?
+    const home = App.state.buildings.find((b) => {
+      const bd = C.BUILDINGS[b.type];
+      if (bd.houses !== type) return false;
+      const n = App.state.animals.filter((a) => a.home === b.id).length;
+      return n < bd.capacity;
+    });
+    if (!home) {
+      const bd = Object.values(C.BUILDINGS).find((x) => x.houses === type);
+      return "Build a " + (bd ? bd.name : "home") + " first (with space).";
+    }
+    App.state.coins -= def.buy;
+    const cx = (home.x + home.w / 2) * T, cy = (home.y + home.h + 1) * T;
+    App.state.animals.push({
+      id: "a" + Date.now() + Math.floor(Math.random() * 999),
+      type: type, home: home.id,
+      wx: cx, wy: cy, dir: "down", fed: false,
+      tx: cx, ty: cy, waitTimer: 30 + Math.random() * 60,
+    });
+    return "A new " + def.name + " " + def.emoji + " joined the farm!";
+  }
+
+  // Feed the closest unfed animal within reach of world point (px,py). Uses 1 hay.
+  function feedNear(px, py) {
+    if (App.inventory.countOf("hay") <= 0) return "You have no hay.";
+    let best = null, bestD = 44;
+    App.state.animals.forEach((a) => {
+      if (a.fed) return;
+      const d = Math.hypot(a.wx - px, a.wy - py);
+      if (d < bestD) { bestD = d; best = a; }
+    });
+    if (!best) return "No hungry animal nearby.";
+    App.inventory.remove("hay", 1);
+    best.fed = true;
+    return "Fed the " + C.ANIMALS[best.type].name + " 🌿";
+  }
+
+  // Fed animals drop produce near themselves; hunger resets. Returns a count.
+  function produceOvernight() {
+    let n = 0;
+    App.state.animals.forEach((a) => {
+      if (!a.fed) return;
+      const def = C.ANIMALS[a.type];
+      App.state.groundItems.push({
+        id: def.produce,
+        wx: a.wx + (Math.random() * 20 - 10),
+        wy: a.wy + (Math.random() * 20 - 10),
+      });
+      a.fed = false;
+      n++;
+    });
+    return n;
+  }
+
+  // Gentle random wander within the roam radius of home.
+  function update() {
+    const speedScale = 1;
+    App.state.animals.forEach((a) => {
+      const h = homeCenter(a);
+      a.waitTimer -= 1;
+      if (a.waitTimer <= 0) {
+        const ang = Math.random() * Math.PI * 2;
+        const r = Math.random() * h.roam;
+        a.tx = h.x + Math.cos(ang) * r;
+        a.ty = h.y + Math.sin(ang) * r;
+        a.waitTimer = 40 + Math.random() * 120;
+      }
+      const dx = a.tx - a.wx, dy = a.ty - a.wy;
+      const dist = Math.hypot(dx, dy);
+      const sp = C.ANIMALS[a.type].speed * speedScale;
+      if (dist > 1.5) {
+        const nx = a.wx + (dx / dist) * sp;
+        const ny = a.wy + (dy / dist) * sp;
+        // Stay off solid tiles (water/trees/buildings).
+        if (!App.world.isSolidTile(Math.floor(nx / T), Math.floor(ny / T))) {
+          a.wx = nx; a.wy = ny;
+          a.dir = Math.abs(dx) > Math.abs(dy) ? (dx < 0 ? "left" : "right") : (dy < 0 ? "up" : "down");
+        } else {
+          a.waitTimer = 0; // pick a new target next frame
+        }
+      }
+    });
+  }
+
+  App.animals = { buy: buy, feedNear: feedNear, produceOvernight: produceOvernight, update: update };
+})();
+
+</script>
+<script>
+// player.js — smooth movement, collision, facing, camera, and item pickup.
+window.App = window.App || {};
+
+(function () {
+  const C = App.config;
+  const T = C.TILE;
+  const HALF_W = 9;   // collision box half-width (feet)
+  const BOX_H = 12;   // collision box height (feet)
+
+  function boxSolid(cx, feetY) {
+    const corners = [
+      [cx - HALF_W, feetY - BOX_H], [cx + HALF_W, feetY - BOX_H],
+      [cx - HALF_W, feetY],         [cx + HALF_W, feetY],
+    ];
+    for (const [px, py] of corners) {
+      if (App.world.isSolidTile(Math.floor(px / T), Math.floor(py / T))) return true;
+    }
+    return false;
+  }
+
+  // The tile the player is currently facing (used by tools).
+  function actionTile() {
+    const p = App.state.player;
+    const cx = Math.floor(p.wx / T);
+    const cy = Math.floor((p.wy - 8) / T);
+    let x = cx, y = cy;
+    if (p.dir === "up") y--;
+    else if (p.dir === "down") y++;
+    else if (p.dir === "left") x--;
+    else if (p.dir === "right") x++;
+    return { x: x, y: y };
+  }
+
+  function update() {
+    const p = App.state.player;
+    let v = App.input.getMoveVector(); // {x,y} each in [-1,1]
+    let vx = v.x, vy = v.y;
+    const len = Math.hypot(vx, vy);
+    p.moving = len > 0.01;
+
+    if (p.moving) {
+      vx /= len; vy /= len;
+      // Facing follows dominant axis.
+      if (Math.abs(vx) > Math.abs(vy)) p.dir = vx < 0 ? "left" : "right";
+      else p.dir = vy < 0 ? "up" : "down";
+
+      const sp = C.PLAYER_SPEED;
+      const nx = p.wx + vx * sp;
+      if (!boxSolid(nx, p.wy)) p.wx = nx;
+      const ny = p.wy + vy * sp;
+      if (!boxSolid(p.wx, ny)) p.wy = ny;
+
+      p.animT += 0.25;
+      p.frame = Math.floor(p.animT) % 4;
+    } else {
+      p.frame = 0;
+    }
+
+    pickupGroundItems();
+    updateCamera();
+  }
+
+  function pickupGroundItems() {
+    const p = App.state.player;
+    const gi = App.state.groundItems;
+    for (let i = gi.length - 1; i >= 0; i--) {
+      const it = gi[i];
+      if (Math.hypot(it.wx - p.wx, it.wy - (p.wy - 10)) < C.PICKUP_RADIUS) {
+        const leftover = App.inventory.add(it.id, 1);
+        if (leftover === 0) {
+          gi.splice(i, 1);
+          const d = C.ITEMS[it.id];
+          App.ui.toast("Picked up " + d.name + " " + d.emoji);
+        }
+      }
+    }
+  }
+
+  function updateCamera() {
+    const p = App.state.player;
+    const viewW = C.VIEW_COLS * T, viewH = C.VIEW_ROWS * T;
+    const worldW = C.WORLD_COLS * T, worldH = C.WORLD_ROWS * T;
+    let cx = p.wx - viewW / 2;
+    let cy = (p.wy - 16) - viewH / 2;
+    cx = Math.max(0, Math.min(worldW - viewW, cx));
+    cy = Math.max(0, Math.min(worldH - viewH, cy));
+    App.state.cam.x = cx;
+    App.state.cam.y = cy;
+  }
+
+  App.player = { update: update, actionTile: actionTile, updateCamera: updateCamera };
+})();
+
+</script>
+<script>
+// render.js — camera-based drawing of the world and everything in it.
+window.App = window.App || {};
+
+(function () {
+  const C = App.config;
+  const T = C.TILE;
+  let ctx, canvas;
+
+  function init(cv) {
+    canvas = cv;
+    ctx = cv.getContext("2d");
+    ctx.imageSmoothingEnabled = false;
+  }
+
+  function frame() {
+    const s = App.state;
+    const cam = s.cam;
+    const viewW = C.VIEW_COLS * T, viewH = C.VIEW_ROWS * T;
+    ctx.clearRect(0, 0, viewW, viewH);
+
+    ctx.save();
+    ctx.translate(-Math.round(cam.x), -Math.round(cam.y));
+
+    const x0 = Math.floor(cam.x / T), y0 = Math.floor(cam.y / T);
+    const x1 = Math.min(s.world.cols - 1, x0 + C.VIEW_COLS + 1);
+    const y1 = Math.min(s.world.rows - 1, y0 + C.VIEW_ROWS + 1);
+
+    // Ground + crops.
+    for (let y = y0; y <= y1; y++) {
+      for (let x = x0; x <= x1; x++) drawGround(x, y);
+    }
+    // Buildings.
+    s.buildings.forEach(drawBuilding);
+    // Ground items.
+    s.groundItems.forEach(drawGroundItem);
+    // Animals + player, y-sorted so nearer ones overlap correctly.
+    const sprites = s.animals.map((a) => ({ y: a.wy, draw: () => drawAnimal(a) }));
+    sprites.push({ y: s.player.wy, draw: () => drawPlayer(s.player) });
+    sprites.sort((a, b) => a.y - b.y);
+    sprites.forEach((sp) => sp.draw());
+
+    // Facing highlight / placement ghost.
+    if (s.placing) drawPlacementGhost();
+    else drawActionHighlight();
+
+    ctx.restore();
+  }
+
+  // ---- Ground ---------------------------------------------------------------
+  function drawGround(x, y) {
+    const t = App.state.world.tiles[y][x];
+    const px = x * T, py = y * T;
+
+    // base grass
+    ctx.fillStyle = (x + y) % 2 === 0 ? "#5aa54a" : "#54a044";
+    ctx.fillRect(px, py, T, T);
+
+    if (t.type === "path") {
+      ctx.fillStyle = "#c2a373";
+      ctx.fillRect(px, py, T, T);
+      ctx.fillStyle = "#b39364";
+      ctx.fillRect(px + 4, py + 6, 5, 5);
+      ctx.fillRect(px + 20, py + 16, 5, 5);
+    } else if (t.type === "water") {
+      ctx.fillStyle = "#3b7dd8";
+      ctx.fillRect(px, py, T, T);
+      ctx.fillStyle = "#5a97e6";
+      const w = Math.sin((performance.now() / 500) + x + y);
+      ctx.fillRect(px + 4, py + 8 + w * 1.5, 10, 2);
+      ctx.fillRect(px + 16, py + 18 - w * 1.5, 10, 2);
+    } else if (t.type === "grass") {
+      const seed = (x * 7 + y * 13) % 5;
+      ctx.fillStyle = "#67b657";
+      if (seed === 0) ctx.fillRect(px + 6, py + 20, 3, 3);
+      if (seed === 2) ctx.fillRect(px + 22, py + 8, 3, 3);
+    }
+
+    if (t.tilled) {
+      ctx.fillStyle = t.watered ? "#5a3a24" : "#7a5230";
+      ctx.fillRect(px + 3, py + 3, T - 6, T - 6);
+      ctx.fillStyle = t.watered ? "#4a2f1d" : "#6a4526";
+      ctx.fillRect(px + 3, py + 11, T - 6, 2);
+      ctx.fillRect(px + 3, py + 20, T - 6, 2);
+    }
+    if (t.crop) drawCrop(px, py, t);
+
+    if (t.type === "tree") drawTree(px, py);
+    else if (t.type === "rock") drawRock(px, py);
+  }
+
+  function drawTree(px, py) {
+    ctx.fillStyle = "#6b4423";
+    ctx.fillRect(px + 13, py + 18, 6, 12);
+    ctx.fillStyle = "#2f7d32";
+    ctx.beginPath();
+    ctx.arc(px + 16, py + 12, 12, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#3c9a3f";
+    ctx.beginPath();
+    ctx.arc(px + 11, py + 10, 7, 0, Math.PI * 2);
+    ctx.arc(px + 21, py + 13, 7, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  function drawRock(px, py) {
+    ctx.fillStyle = "#8b8b93";
+    ctx.beginPath();
+    ctx.moveTo(px + 6, py + 26);
+    ctx.lineTo(px + 10, py + 12);
+    ctx.lineTo(px + 20, py + 10);
+    ctx.lineTo(px + 26, py + 24);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = "#a6a6ad";
+    ctx.fillRect(px + 12, py + 14, 6, 4);
+  }
+
+  function drawCrop(px, py, t) {
+    const c = C.CROPS[t.crop];
+    const ripe = t.grow >= c.stages;
+    const stageFrac = Math.min(1, t.grow / c.stages);
+    const cx = px + T / 2;
+
+    if (t.grow === 0) {
+      ctx.fillStyle = "#3f7a2f"; ctx.fillRect(cx - 1, py + 22, 2, 6);
+      ctx.fillStyle = "#7ac142"; ctx.fillRect(cx - 3, py + 20, 2, 2); ctx.fillRect(cx + 1, py + 20, 2, 2);
+      return;
+    }
+    const stalkH = 6 + Math.round(stageFrac * 16);
+    ctx.fillStyle = "#3f7a2f"; ctx.fillRect(cx - 1, py + (28 - stalkH), 3, stalkH);
+    ctx.fillStyle = "#66b33a";
+    ctx.fillRect(cx - 5, py + (28 - stalkH) + 3, 4, 2);
+    ctx.fillRect(cx + 2, py + (28 - stalkH) + 6, 4, 2);
+
+    const col = ripe ? c.ripe : c.color;
+    if (t.crop === "wheat") {
+      ctx.fillStyle = col;
+      const topY = py + (28 - stalkH) - 2;
+      ctx.fillRect(cx - 3, topY, 6, 8);
+      if (ripe) { ctx.fillStyle = "#fff2b0"; ctx.fillRect(cx - 3, topY, 6, 2); }
+    } else if (t.crop === "carrot") {
+      if (ripe) { ctx.fillStyle = col; ctx.fillRect(cx - 3, py + 20, 6, 7); ctx.fillRect(cx - 2, py + 27, 4, 3); }
+      else { ctx.fillStyle = "#4c9a2e"; ctx.fillRect(cx - 4, py + 20, 8, 4); }
+    } else if (t.crop === "pumpkin") {
+      const r = 4 + Math.round(stageFrac * 6);
+      ctx.fillStyle = col;
+      ctx.beginPath(); ctx.arc(cx, py + T - 8, r, 0, Math.PI * 2); ctx.fill();
+      if (ripe) {
+        ctx.fillStyle = "#c85a12"; ctx.fillRect(cx - r, py + T - 8, r * 2, 1);
+        ctx.fillStyle = "#3f7a2f"; ctx.fillRect(cx - 1, py + T - 8 - r - 2, 2, 3);
+      }
+    }
+    if (ripe) {
+      const s = (Math.sin(performance.now() / 200 + px) + 1) / 2;
+      ctx.fillStyle = "rgba(255,255,180," + (0.4 + s * 0.5) + ")";
+      ctx.fillRect(px + T - 8, py + 4, 3, 3);
+    }
+  }
+
+  // ---- Buildings ------------------------------------------------------------
+  function drawBuilding(b) {
+    const def = C.BUILDINGS[b.type];
+    const px = b.x * T, py = b.y * T, w = b.w * T, h = b.h * T;
+
+    if (b.type === "shipping_bin") {
+      ctx.fillStyle = "#5a7a2e"; ctx.fillRect(px + 3, py + 8, T - 6, T - 12);
+      ctx.fillStyle = def.color; ctx.fillRect(px + 3, py + 4, T - 6, 8);
+      ctx.fillStyle = "#3f5720"; ctx.fillRect(px + 3, py + 11, T - 6, 2);
+      ctx.fillStyle = "#dfe8c0"; ctx.font = "10px monospace"; ctx.fillText("📦", px + 9, py + 26);
+      return;
+    }
+    if (b.type === "fence") {
+      ctx.fillStyle = "#8a6237"; ctx.fillRect(px + 6, py + 8, 4, 20);
+      ctx.fillRect(px + 22, py + 8, 4, 20);
+      ctx.fillStyle = "#a5794a"; ctx.fillRect(px + 2, py + 12, T - 4, 4);
+      ctx.fillRect(px + 2, py + 20, T - 4, 4);
+      return;
+    }
+
+    // Coop / barn: walls + roof + door.
+    const wallH = h - 14;
+    ctx.fillStyle = def.color;
+    ctx.fillRect(px + 2, py + 12, w - 4, wallH);
+    ctx.fillStyle = shade(def.color, -20);
+    ctx.fillRect(px + 2, py + 12 + wallH - 4, w - 4, 4);
+    // roof
+    ctx.fillStyle = "#7a3b2e";
+    ctx.beginPath();
+    ctx.moveTo(px, py + 14);
+    ctx.lineTo(px + w / 2, py - 2);
+    ctx.lineTo(px + w, py + 14);
+    ctx.closePath();
+    ctx.fill();
+    // door
+    ctx.fillStyle = "#5a3a24";
+    ctx.fillRect(px + w / 2 - 7, py + 12 + wallH - 16, 14, 16);
+    // sign emoji
+    ctx.font = "14px monospace";
+    ctx.fillText(def.emoji, px + w / 2 - 8, py + 26);
+  }
+
+  function shade(hex, amt) {
+    const n = parseInt(hex.slice(1), 16);
+    let r = (n >> 16) + amt, g = ((n >> 8) & 255) + amt, b = (n & 255) + amt;
+    r = Math.max(0, Math.min(255, r)); g = Math.max(0, Math.min(255, g)); b = Math.max(0, Math.min(255, b));
+    return "rgb(" + r + "," + g + "," + b + ")";
+  }
+
+  // ---- Animals --------------------------------------------------------------
+  function drawAnimal(a) {
+    const x = a.wx, y = a.wy;
+    ctx.fillStyle = "rgba(0,0,0,0.2)";
+    ctx.beginPath(); ctx.ellipse(x, y + 2, 9, 3, 0, 0, Math.PI * 2); ctx.fill();
+    const def = C.ANIMALS[a.type];
+
+    if (a.type === "chicken") {
+      ctx.fillStyle = def.color; ctx.fillRect(x - 6, y - 10, 12, 10);
+      ctx.fillStyle = "#e33"; ctx.fillRect(x - 3, y - 15, 6, 4); // comb
+      ctx.fillStyle = def.color; ctx.fillRect(x - 4, y - 14, 8, 6); // head
+      ctx.fillStyle = "#f5a623"; // beak
+      ctx.fillRect(a.dir === "left" ? x - 8 : x + 5, y - 12, 3, 2);
+      ctx.fillStyle = "#222"; ctx.fillRect(a.dir === "left" ? x - 3 : x + 1, y - 12, 2, 2);
+      ctx.fillStyle = "#f5a623"; ctx.fillRect(x - 3, y, 2, 3); ctx.fillRect(x + 1, y, 2, 3);
+    } else { // cow
+      ctx.fillStyle = def.color; ctx.fillRect(x - 9, y - 13, 18, 13);
+      ctx.fillStyle = "#3a3a3a"; ctx.fillRect(x - 6, y - 11, 5, 5); ctx.fillRect(x + 2, y - 6, 5, 5);
+      ctx.fillStyle = def.color; ctx.fillRect(a.dir === "left" ? x - 13 : x + 6, y - 12, 7, 8); // head
+      ctx.fillStyle = "#f2b8c6"; ctx.fillRect(a.dir === "left" ? x - 13 : x + 9, y - 7, 4, 3); // snout
+      ctx.fillStyle = "#222"; ctx.fillRect(a.dir === "left" ? x - 11 : x + 8, y - 10, 2, 2);
+      ctx.fillStyle = "#5a3a24"; ctx.fillRect(x - 7, y, 3, 3); ctx.fillRect(x + 4, y, 3, 3);
+    }
+  }
+
+  // ---- Ground items ---------------------------------------------------------
+  function drawGroundItem(it) {
+    const x = it.wx, y = it.wy;
+    const bob = Math.sin(performance.now() / 300 + x) * 1.5;
+    ctx.fillStyle = "rgba(0,0,0,0.2)";
+    ctx.beginPath(); ctx.ellipse(x, y + 3, 6, 2, 0, 0, Math.PI * 2); ctx.fill();
+    if (it.id === "egg") {
+      ctx.fillStyle = "#f7f0dd";
+      ctx.beginPath(); ctx.ellipse(x, y - 3 + bob, 4, 5, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "#e6dcc0"; ctx.fillRect(x - 2, y - 1 + bob, 2, 2);
+    } else if (it.id === "milk") {
+      ctx.fillStyle = "#d8d8d8"; ctx.fillRect(x - 4, y - 8 + bob, 8, 9);
+      ctx.fillStyle = "#fff"; ctx.fillRect(x - 4, y - 8 + bob, 8, 2);
+      ctx.fillStyle = "#bbb"; ctx.fillRect(x - 4, y - 1 + bob, 8, 2);
+    } else {
+      const d = C.ITEMS[it.id];
+      ctx.fillStyle = (C.CROPS[it.id] && C.CROPS[it.id].ripe) || "#e8c86a";
+      ctx.fillRect(x - 4, y - 6 + bob, 8, 8);
+    }
+  }
+
+  // ---- Player ---------------------------------------------------------------
+  function drawPlayer(p) {
+    const x = Math.round(p.wx), feet = Math.round(p.wy);
+    ctx.fillStyle = "rgba(0,0,0,0.25)";
+    ctx.beginPath(); ctx.ellipse(x, feet, 9, 3, 0, 0, Math.PI * 2); ctx.fill();
+
+    // legs (walk cycle)
+    const swing = p.moving ? [0, 2, 0, -2][p.frame] : 0;
+    ctx.fillStyle = "#28406a";
+    ctx.fillRect(x - 5, feet - 8 + Math.max(0, swing), 4, 8 - Math.abs(swing) * 0.5);
+    ctx.fillRect(x + 1, feet - 8 + Math.max(0, -swing), 4, 8 - Math.abs(swing) * 0.5);
+
+    // body / shirt / head / hat (feet-relative)
+    ctx.fillStyle = "#3a6ea5"; ctx.fillRect(x - 6, feet - 18, 12, 11);       // overalls
+    ctx.fillStyle = "#d94f4f"; ctx.fillRect(x - 6, feet - 21, 12, 4);        // shirt
+    ctx.fillStyle = "#f0c088"; ctx.fillRect(x - 5, feet - 28, 10, 9);        // head
+    ctx.fillStyle = "#c8a24a"; ctx.fillRect(x - 8, feet - 30, 16, 3);        // hat brim
+    ctx.fillRect(x - 5, feet - 33, 10, 3);                                   // hat top
+
+    ctx.fillStyle = "#222";
+    if (p.dir === "left") ctx.fillRect(x - 4, feet - 24, 2, 2);
+    else if (p.dir === "right") ctx.fillRect(x + 2, feet - 24, 2, 2);
+    else if (p.dir === "up") { ctx.fillStyle = "#d8a878"; ctx.fillRect(x - 5, feet - 28, 10, 9); }
+    else { ctx.fillRect(x - 3, feet - 24, 2, 2); ctx.fillRect(x + 1, feet - 24, 2, 2); }
+  }
+
+  // ---- Overlays -------------------------------------------------------------
+  function drawActionHighlight() {
+    const a = App.player.actionTile();
+    if (!App.world.tileAt(a.x, a.y)) return;
+    ctx.strokeStyle = "rgba(255,255,255,0.5)";
+    ctx.lineWidth = 2;
+    ctx.strokeRect(a.x * T + 2, a.y * T + 2, T - 4, T - 4);
+  }
+
+  function drawPlacementGhost() {
+    const s = App.state;
+    const a = App.player.actionTile();
+    const def = C.BUILDINGS[s.placing];
+    const ok = App.world.canPlace(s.placing, a.x, a.y);
+    ctx.globalAlpha = 0.5;
+    ctx.fillStyle = ok ? "#8fd66b" : "#e0605a";
+    ctx.fillRect(a.x * T, a.y * T, def.w * T, def.h * T);
+    ctx.globalAlpha = 1;
+    ctx.strokeStyle = ok ? "#eaffd0" : "#ffb0ac";
+    ctx.lineWidth = 2;
+    ctx.strokeRect(a.x * T + 1, a.y * T + 1, def.w * T - 2, def.h * T - 2);
+  }
+
+  App.render = { init: init, frame: frame };
+})();
+
+</script>
+<script>
+// ui.js — HUD, hotbar, toast, shop panel, and morning summary.
+window.App = window.App || {};
+
+(function () {
+  const C = App.config;
+  const $ = (id) => document.getElementById(id);
+
+  let toastTimer = null;
+
+  function toast(msg) {
+    const t = $("toast");
+    if (!t) return;
+    t.textContent = msg;
+    t.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => t.classList.remove("show"), 1600);
+  }
+
+  function refreshHUD() {
+    $("coins").textContent = App.state.coins;
+    $("day").textContent = App.state.day;
+    const binCount = App.state.shipping.reduce((n, e) => n + e.count, 0);
+    $("bin").textContent = binCount;
+  }
+
+  function buildHotbar() {
+    const bar = $("hotbar");
+    bar.innerHTML = "";
+    for (let i = 0; i < C.HOTBAR_SLOTS; i++) {
+      const cell = document.createElement("div");
+      cell.className = "slot";
+      cell.dataset.index = i;
+      cell.addEventListener("click", () => { App.inventory.select(i); refreshHotbar(); });
+      bar.appendChild(cell);
+    }
+    refreshHotbar();
+  }
+
+  function refreshHotbar() {
+    const bar = $("hotbar");
+    const s = App.state;
+    for (let i = 0; i < bar.children.length; i++) {
+      const cell = bar.children[i];
+      const slot = s.inventory[i];
+      cell.classList.toggle("active", i === s.selected);
+      if (slot) {
+        const d = C.ITEMS[slot.id];
+        const count = (d.stackable && slot.count > 1) ? '<span class="ct">' + slot.count + "</span>" : "";
+        cell.innerHTML = '<span class="emo">' + d.emoji + "</span>" + count;
+        cell.title = d.name;
+      } else {
+        cell.innerHTML = "";
+        cell.title = "";
+      }
+    }
+    const sel = App.inventory.selectedDef();
+    $("selname").textContent = sel ? sel.name : "—";
+  }
+
+  // ---- Shop -----------------------------------------------------------------
+  function shopRow(label, emoji, cost, disabled, onClick) {
+    const row = document.createElement("div");
+    row.className = "shop-row";
+    row.innerHTML = '<span class="shop-emo">' + emoji + '</span><span class="shop-name">' + label +
+      '</span><span class="shop-cost">' + cost + "c</span>";
+    const btn = document.createElement("button");
+    btn.className = "shop-buy";
+    btn.textContent = "Buy";
+    btn.disabled = !!disabled;
+    btn.addEventListener("click", onClick);
+    row.appendChild(btn);
+    return row;
+  }
+
+  function openShop() {
+    const panel = $("shop-panel");
+    const list = $("shop-list");
+    list.innerHTML = "";
+    const s = App.state;
+
+    const section = (title) => {
+      const h = document.createElement("div");
+      h.className = "shop-head";
+      h.textContent = title;
+      list.appendChild(h);
+    };
+
+    section("🌱 Seeds");
+    ["wheat_seed", "carrot_seed", "pumpkin_seed"].forEach((id) => {
+      const d = C.ITEMS[id];
+      list.appendChild(shopRow(d.name, d.emoji, d.buy, s.coins < d.buy, () => {
+        if (s.coins < d.buy) return;
+        s.coins -= d.buy; App.inventory.add(id, 1);
+        toast("Bought " + d.name); afterBuy();
+      }));
+    });
+
+    section("🐔 Animals & feed");
+    const hay = C.ITEMS.hay;
+    list.appendChild(shopRow("Hay", hay.emoji, hay.buy, s.coins < hay.buy, () => {
+      if (s.coins < hay.buy) return;
+      s.coins -= hay.buy; App.inventory.add("hay", 1);
+      toast("Bought Hay 🌿"); afterBuy();
+    }));
+    ["chicken", "cow"].forEach((type) => {
+      const d = C.ANIMALS[type];
+      list.appendChild(shopRow(d.name, d.emoji, d.buy, s.coins < d.buy, () => {
+        toast(App.animals.buy(type)); afterBuy();
+      }));
+    });
+
+    section("🏠 Buildings (buy → then place)");
+    ["coop", "barn", "shipping_bin", "fence"].forEach((type) => {
+      const d = C.BUILDINGS[type];
+      list.appendChild(shopRow(d.name, d.emoji, d.buy, s.coins < d.buy, () => {
+        if (s.coins < d.buy) return;
+        s.placing = type;
+        closeShop();
+        toast("Placing " + d.name + " — tap a spot / press action. (Esc/✕ cancels)");
+      }));
+    });
+
+    panel.classList.add("show");
+  }
+
+  function afterBuy() { refreshHUD(); refreshHotbar(); if ($("shop-panel").classList.contains("show")) openShop(); }
+  function closeShop() { $("shop-panel").classList.remove("show"); }
+
+  function showMorning(text) {
+    const m = $("morning");
+    $("morning-text").innerHTML = text;
+    m.classList.add("show");
+  }
+  function hideMorning() { $("morning").classList.remove("show"); }
+
+  App.ui = {
+    toast: toast, refreshHUD: refreshHUD, buildHotbar: buildHotbar, refreshHotbar: refreshHotbar,
+    openShop: openShop, closeShop: closeShop, showMorning: showMorning, hideMorning: hideMorning,
+  };
+})();
+
+</script>
+<script>
+// input.js — keyboard, mouse, and on-screen touch controls.
+window.App = window.App || {};
+
+(function () {
+  const C = App.config;
+  const T = C.TILE;
+
+  const keys = {};                    // held keyboard keys
+  const touch = { x: 0, y: 0 };       // virtual d-pad vector
+
+  function getMoveVector() {
+    let x = 0, y = 0;
+    if (keys["arrowleft"] || keys["a"]) x -= 1;
+    if (keys["arrowright"] || keys["d"]) x += 1;
+    if (keys["arrowup"] || keys["w"]) y -= 1;
+    if (keys["arrowdown"] || keys["s"]) y += 1;
+    x += touch.x; y += touch.y;
+    return { x: Math.max(-1, Math.min(1, x)), y: Math.max(-1, Math.min(1, y)) };
+  }
+
+  function init(canvas) {
+    // ---- Keyboard ----
+    window.addEventListener("keydown", (e) => {
+      const k = e.key.toLowerCase();
+      if (["arrowup", "arrowdown", "arrowleft", "arrowright", " "].includes(k) ||
+          ["w", "a", "s", "d"].includes(k)) e.preventDefault();
+
+      if (k === " " || k === "e") { App.game.doAction(); return; }
+      if (k === "escape") { App.game.cancel(); return; }
+      if (k >= "1" && k <= "9") { App.inventory.select(parseInt(k, 10) - 1); App.ui.refreshHotbar(); return; }
+      keys[k] = true;
+    });
+    window.addEventListener("keyup", (e) => { keys[e.key.toLowerCase()] = false; });
+    window.addEventListener("blur", () => { for (const k in keys) keys[k] = false; });
+
+    // ---- Mouse / tap on the field ----
+    canvas.addEventListener("click", (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const sx = canvas.width / rect.width, sy = canvas.height / rect.height;
+      const wx = (e.clientX - rect.left) * sx + App.state.cam.x;
+      const wy = (e.clientY - rect.top) * sy + App.state.cam.y;
+      const tx = Math.floor(wx / T), ty = Math.floor(wy / T);
+      App.game.clickTile(tx, ty);
+    });
+
+    // ---- Touch d-pad + action button ----
+    document.querySelectorAll("[data-dir]").forEach((btn) => {
+      const dir = btn.dataset.dir;
+      const set = (on) => {
+        if (dir === "left") touch.x = on ? -1 : 0;
+        if (dir === "right") touch.x = on ? 1 : 0;
+        if (dir === "up") touch.y = on ? -1 : 0;
+        if (dir === "down") touch.y = on ? 1 : 0;
+      };
+      const down = (e) => { e.preventDefault(); set(true); };
+      const up = (e) => { e.preventDefault(); set(false); };
+      btn.addEventListener("pointerdown", down);
+      btn.addEventListener("pointerup", up);
+      btn.addEventListener("pointerleave", up);
+      btn.addEventListener("pointercancel", up);
+    });
+
+    const act = document.getElementById("btn-action");
+    if (act) act.addEventListener("pointerdown", (e) => { e.preventDefault(); App.game.doAction(); });
+  }
+
+  App.input = { init: init, getMoveVector: getMoveVector };
+})();
+
+</script>
+<script>
+// game.js — bootstrap, main loop, and the actions that tie systems together.
+window.App = window.App || {};
+
+(function () {
+  const C = App.config;
+  const T = C.TILE;
+  let canvas;
+
+  function refresh() { App.ui.refreshHUD(); App.ui.refreshHotbar(); }
+
+  // Act on a specific tile (shipping / feeding / farming), respecting placement.
+  function actOnTile(tx, ty) {
+    const s = App.state;
+    if (s.placing) { tryPlace(tx, ty); return; }
+
+    const b = App.world.buildingAt(tx, ty);
+    if (b && b.type === "shipping_bin") {
+      App.ui.toast(App.shipping.depositSelected());
+      refresh();
+      return;
+    }
+
+    if (App.inventory.selectedId() === "hay") {
+      App.ui.toast(App.animals.feedNear((tx + 0.5) * T, (ty + 0.5) * T));
+      refresh();
+      return;
+    }
+
+    const msg = App.crops.useOnTile(tx, ty);
+    if (msg) App.ui.toast(msg);
+    refresh();
+  }
+
+  function doAction() {
+    if (App.state.placing) {
+      const a = App.player.actionTile();
+      tryPlace(a.x, a.y);
+      return;
+    }
+    const a = App.player.actionTile();
+    actOnTile(a.x, a.y);
+  }
+
+  // Tap on the field: act if adjacent, otherwise just turn to face it.
+  function clickTile(tx, ty) {
+    const s = App.state;
+    if (s.placing) { tryPlace(tx, ty); return; }
+    const p = s.player;
+    const pcx = Math.floor(p.wx / T), pcy = Math.floor((p.wy - 8) / T);
+    const dx = tx - pcx, dy = ty - pcy;
+    if (dx !== 0 || dy !== 0) {
+      if (Math.abs(dx) > Math.abs(dy)) p.dir = dx < 0 ? "left" : "right";
+      else p.dir = dy < 0 ? "up" : "down";
+    }
+    if (Math.max(Math.abs(dx), Math.abs(dy)) <= 1) actOnTile(tx, ty);
+  }
+
+  function tryPlace(tx, ty) {
+    const s = App.state;
+    const type = s.placing;
+    if (!type) return;
+    const def = C.BUILDINGS[type];
+    if (!App.world.canPlace(type, tx, ty)) { App.ui.toast("Can't place there — needs clear ground."); return; }
+    if (s.coins < def.buy) { App.ui.toast("Not enough coins."); s.placing = null; toggleCancel(); return; }
+    s.coins -= def.buy;
+    App.world.placeBuilding(type, tx, ty);
+    s.placing = null;
+    toggleCancel();
+    App.ui.toast(def.name + " placed! 🏗️");
+    refresh();
+  }
+
+  function cancel() {
+    if (App.state.placing) { App.state.placing = null; toggleCancel(); App.ui.toast("Placement cancelled."); return; }
+    App.ui.closeShop();
+    App.ui.hideMorning();
+  }
+
+  function toggleCancel() {
+    const btn = document.getElementById("btn-cancel");
+    if (btn) btn.style.display = App.state.placing ? "inline-block" : "none";
+  }
+
+  function sleep() {
+    App.crops.growOvernight();
+    const sold = App.shipping.sellOvernight();
+    const produced = App.animals.produceOvernight();
+    App.state.day++;
+    App.stateApi.save();
+
+    const lines = ["<b>☀️ Day " + App.state.day + "</b>"];
+    if (sold.summary) lines.push(sold.summary);
+    if (produced > 0) lines.push("Your animals left " + produced + " thing" + (produced > 1 ? "s" : "") + " to collect 🥚");
+    lines.push("Crops grew. Watered soil dried out.");
+    App.ui.showMorning(lines.join("<br>"));
+    refresh();
+  }
+
+  function loop() {
+    App.player.update();
+    App.animals.update();
+    App.render.frame();
+    requestAnimationFrame(loop);
+  }
+
+  function init() {
+    canvas = document.getElementById("game");
+    App.render.init(canvas);
+
+    if (!App.stateApi.load()) App.stateApi.newGame();
+    App.player.updateCamera();
+
+    App.input.init(canvas);
+    App.ui.buildHotbar();
+    App.ui.refreshHUD();
+
+    document.getElementById("btn-sleep").addEventListener("click", sleep);
+    document.getElementById("btn-shop").addEventListener("click", App.ui.openShop);
+    document.getElementById("shop-close").addEventListener("click", App.ui.closeShop);
+    document.getElementById("morning-ok").addEventListener("click", App.ui.hideMorning);
+    document.getElementById("btn-cancel").addEventListener("click", cancel);
+    document.getElementById("btn-reset").addEventListener("click", () => {
+      if (!window.confirm("Reset the farm and lose all progress?")) return;
+      App.stateApi.reset();
+      App.player.updateCamera();
+      App.ui.buildHotbar();
+      refresh();
+      App.ui.toast("Fresh farm! 🌱");
+    });
+    toggleCancel();
+
+    App.ui.toast("Welcome to your farm! Walk with the pad, tap a tile to act.");
+    requestAnimationFrame(loop);
+  }
+
+  App.game = { doAction: doAction, clickTile: clickTile, cancel: cancel, sleep: sleep, tryPlace: tryPlace };
+
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);
+  else init();
+})();
+
+</script>
+</body>
+</html>

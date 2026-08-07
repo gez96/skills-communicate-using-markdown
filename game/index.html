@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
 <title>Pixel Harvest 🌱</title>
 <style>
   :root {
@@ -15,36 +15,30 @@
   * { box-sizing: border-box; }
   html, body {
     margin: 0;
-    height: 100%;
+    min-height: 100%;
     background: #1a1226;
     color: var(--ink);
     font-family: "Courier New", monospace;
     -webkit-font-smoothing: none;
-    image-rendering: pixelated;
+    -webkit-user-select: none;
+    user-select: none;
   }
   #app {
     min-height: 100%;
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
-    gap: 12px;
-    padding: 16px;
+    gap: 10px;
+    padding: 12px;
   }
   h1 {
-    margin: 0;
+    margin: 4px 0 0;
     font-size: 22px;
     letter-spacing: 2px;
     color: var(--accent-2);
     text-shadow: 2px 2px 0 #000;
   }
-  #hud {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    justify-content: center;
-    max-width: 640px;
-  }
+  #hud { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
   .chip {
     background: var(--panel);
     border: 2px solid #000;
@@ -54,474 +48,190 @@
     white-space: nowrap;
   }
   .chip b { color: var(--accent-2); }
+
   #stage {
     position: relative;
     border: 4px solid #000;
     box-shadow: 6px 6px 0 #000;
     background: #000;
+    width: min(480px, 92vw);
+    touch-action: none;
   }
   canvas {
     display: block;
+    width: 100%;
+    height: auto;
     image-rendering: pixelated;
     image-rendering: crisp-edges;
   }
+
   #toast {
-    position: absolute;
-    left: 50%;
-    bottom: 10px;
-    transform: translateX(-50%);
-    background: rgba(0,0,0,0.75);
-    padding: 6px 12px;
-    font-size: 13px;
-    border: 2px solid var(--accent);
-    opacity: 0;
-    transition: opacity .2s;
-    pointer-events: none;
-    white-space: nowrap;
+    position: absolute; left: 50%; top: 8px; transform: translateX(-50%);
+    background: rgba(0,0,0,0.78); padding: 6px 12px; font-size: 12px;
+    border: 2px solid var(--accent); opacity: 0; transition: opacity .2s;
+    pointer-events: none; white-space: nowrap; max-width: 94%; overflow: hidden; text-overflow: ellipsis;
   }
   #toast.show { opacity: 1; }
-  #tools {
-    display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
-    justify-content: center;
+
+  /* ---- Touch controls overlaid on the stage ---- */
+  #dpad {
+    position: absolute; left: 10px; bottom: 10px;
+    display: grid; grid-template-columns: repeat(3, 34px); grid-template-rows: repeat(3, 34px);
+    gap: 3px; opacity: 0.82;
   }
+  .dbtn {
+    background: rgba(43,33,64,0.9); border: 2px solid #000; color: var(--ink);
+    font-size: 15px; display: flex; align-items: center; justify-content: center;
+    cursor: pointer; touch-action: none;
+  }
+  .dbtn:active { background: var(--accent); color: #14210a; }
+  #d-up { grid-area: 1 / 2; }
+  #d-left { grid-area: 2 / 1; }
+  #d-right { grid-area: 2 / 3; }
+  #d-down { grid-area: 3 / 2; }
+  #btn-action {
+    position: absolute; right: 12px; bottom: 14px;
+    width: 62px; height: 62px; border-radius: 50%;
+    background: rgba(143,214,107,0.92); border: 3px solid #000; box-shadow: 3px 3px 0 #000;
+    color: #14210a; font-size: 22px; cursor: pointer; touch-action: none;
+  }
+  #btn-action:active { transform: translate(2px,2px); box-shadow: 1px 1px 0 #000; }
+
+  /* ---- Hotbar ---- */
+  #hotbar {
+    display: grid; grid-template-columns: repeat(12, 1fr); gap: 4px;
+    width: min(480px, 92vw);
+  }
+  .slot {
+    position: relative; aspect-ratio: 1 / 1;
+    background: var(--panel-2); border: 2px solid #000; box-shadow: 2px 2px 0 #000;
+    display: flex; align-items: center; justify-content: center; cursor: pointer;
+    font-size: clamp(11px, 3.2vw, 18px);
+  }
+  .slot.active { background: var(--accent-2); box-shadow: inset 0 0 0 2px #000; }
+  .slot .ct {
+    position: absolute; right: 1px; bottom: 0px; font-size: 10px; color: #fff;
+    text-shadow: 1px 1px 0 #000; font-family: "Courier New", monospace;
+  }
+  #selbar { font-size: 12px; opacity: 0.85; }
+  #selbar b { color: var(--accent-2); }
+
+  /* ---- Buttons ---- */
+  #tools { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
   .tool {
-    background: var(--panel-2);
-    border: 2px solid #000;
-    box-shadow: 3px 3px 0 #000;
-    color: var(--ink);
-    padding: 8px 12px;
-    font-family: inherit;
-    font-size: 13px;
-    cursor: pointer;
-    user-select: none;
+    background: var(--panel-2); border: 2px solid #000; box-shadow: 3px 3px 0 #000;
+    color: var(--ink); padding: 8px 12px; font-family: inherit; font-size: 13px; cursor: pointer;
   }
-  .tool.active {
-    background: var(--accent);
-    color: #14210a;
-    transform: translate(1px, 1px);
-    box-shadow: 2px 2px 0 #000;
+  .tool:active { transform: translate(2px,2px); box-shadow: 1px 1px 0 #000; }
+  #btn-sleep { background: #6a86c8; color: #10182e; }
+  #btn-shop { background: var(--accent); color: #14210a; }
+  #btn-cancel { background: #e0605a; color: #240b0a; display: none; }
+
+  /* ---- Overlays (shop / morning) ---- */
+  .overlay {
+    position: absolute; inset: 0; background: rgba(10,6,18,0.86);
+    display: none; align-items: center; justify-content: center; padding: 12px;
   }
-  .tool:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 #000; }
+  .overlay.show { display: flex; }
+  .modal {
+    background: var(--panel); border: 3px solid #000; box-shadow: 5px 5px 0 #000;
+    width: 100%; max-width: 380px; max-height: 92%; overflow-y: auto; padding: 12px;
+  }
+  .modal h2 { margin: 0 0 8px; font-size: 16px; color: var(--accent-2); letter-spacing: 1px; }
+  .shop-head { margin: 10px 0 4px; font-size: 12px; opacity: 0.8; border-bottom: 1px solid #000; padding-bottom: 2px; }
+  .shop-row { display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: 13px; }
+  .shop-emo { width: 20px; text-align: center; }
+  .shop-name { flex: 1; }
+  .shop-cost { color: var(--accent-2); font-size: 12px; }
+  .shop-buy {
+    background: var(--accent); border: 2px solid #000; color: #14210a;
+    font-family: inherit; font-size: 12px; padding: 3px 8px; cursor: pointer;
+  }
+  .shop-buy:disabled { background: #555; color: #999; cursor: not-allowed; }
+  .modal .close {
+    margin-top: 10px; width: 100%; background: var(--panel-2); border: 2px solid #000;
+    color: var(--ink); font-family: inherit; font-size: 13px; padding: 8px; cursor: pointer;
+  }
+  #morning-text { font-size: 14px; line-height: 1.8; text-align: center; }
+
   #help {
-    font-size: 12px;
-    opacity: 0.75;
-    max-width: 560px;
-    text-align: center;
-    line-height: 1.6;
+    font-size: 12px; opacity: 0.75; max-width: 520px; text-align: center; line-height: 1.6;
   }
-  kbd {
-    background: #000;
-    border: 1px solid #555;
-    border-radius: 3px;
-    padding: 1px 5px;
-    font-size: 11px;
-  }
-  a { color: var(--accent); }
+  kbd { background: #000; border: 1px solid #555; border-radius: 3px; padding: 1px 5px; font-size: 11px; }
 </style>
 </head>
 <body>
 <div id="app">
   <h1>🌱 PIXEL HARVEST</h1>
+
   <div id="hud">
-    <div class="chip">💰 Coins: <b id="coins">0</b></div>
-    <div class="chip">📅 Day: <b id="day">1</b></div>
-    <div class="chip">🌾 Wheat: <b id="seed-wheat">3</b></div>
-    <div class="chip">🥕 Carrot: <b id="seed-carrot">2</b></div>
-    <div class="chip">🎃 Pumpkin: <b id="seed-pumpkin">1</b></div>
+    <div class="chip">💰 <b id="coins">0</b></div>
+    <div class="chip">📅 Day <b id="day">1</b></div>
+    <div class="chip">📦 Bin <b id="bin">0</b></div>
   </div>
 
   <div id="stage">
     <canvas id="game" width="480" height="480"></canvas>
     <div id="toast"></div>
+
+    <!-- touch controls -->
+    <div id="dpad">
+      <div class="dbtn" id="d-up" data-dir="up">▲</div>
+      <div class="dbtn" id="d-left" data-dir="left">◀</div>
+      <div class="dbtn" id="d-right" data-dir="right">▶</div>
+      <div class="dbtn" id="d-down" data-dir="down">▼</div>
+    </div>
+    <button id="btn-action">✋</button>
+
+    <!-- shop -->
+    <div class="overlay" id="shop-panel">
+      <div class="modal">
+        <h2>🛒 General Store</h2>
+        <div id="shop-list"></div>
+        <button class="close" id="shop-close">Close</button>
+      </div>
+    </div>
+
+    <!-- morning summary -->
+    <div class="overlay" id="morning">
+      <div class="modal">
+        <h2>🌅 A New Day</h2>
+        <div id="morning-text"></div>
+        <button class="close" id="morning-ok">Start the day</button>
+      </div>
+    </div>
   </div>
 
+  <div id="hotbar"></div>
+  <div id="selbar">Holding: <b id="selname">—</b></div>
+
   <div id="tools">
-    <button class="tool active" data-tool="hoe">⛏️ Hoe (1)</button>
-    <button class="tool" data-tool="wheat">🌾 Wheat (2)</button>
-    <button class="tool" data-tool="carrot">🥕 Carrot (3)</button>
-    <button class="tool" data-tool="pumpkin">🎃 Pumpkin (4)</button>
-    <button class="tool" data-tool="water">💧 Water (5)</button>
-    <button class="tool" data-tool="harvest">🧺 Harvest (6)</button>
-    <button class="tool" id="sleep">😴 Sleep / Next Day</button>
-    <button class="tool" id="shop">🛒 Buy Seeds</button>
+    <button class="tool" id="btn-sleep">😴 Sleep</button>
+    <button class="tool" id="btn-shop">🛒 Shop</button>
+    <button class="tool" id="btn-cancel">✕ Cancel place</button>
+    <button class="tool" id="btn-reset">🔄 Reset</button>
   </div>
 
   <div id="help">
-    Move with <kbd>WASD</kbd> / <kbd>Arrows</kbd>. Use a tool on the tile in front of you with
-    <kbd>Space</kbd> / <kbd>E</kbd>, or just <b>click a tile</b>. Pick a tool with the buttons or
-    number keys <kbd>1</kbd>–<kbd>6</kbd>. Till the dirt → plant a seed → water it → wait a few days
-    → harvest for coins. Buy more seeds with coins. Watered crops grow faster!
+    <b>Move:</b> on-screen pad or <kbd>WASD</kbd>/arrows. <b>Act:</b> the ✋ button, <kbd>Space</kbd>, or
+    <b>tap a nearby tile</b>. Pick a hotbar item by tapping it (or <kbd>1</kbd>–<kbd>9</kbd>).<br />
+    Loop: ⛏️ till → 🌱 plant → 💧 water → 😴 sleep → 🧺 harvest → 📦 ship to sell. Buy seeds, animals &amp;
+    buildings at the 🛒 Shop; feed 🌿 hay to animals for 🥚/🥛.
   </div>
 </div>
 
-<script>
-(() => {
-  "use strict";
-
-  // ---------- Config ----------
-  const TILE = 32;
-  const COLS = 15, ROWS = 15;
-  const W = COLS * TILE, H = ROWS * TILE;
-
-  const CROPS = {
-    wheat:   { name: "Wheat",   emoji: "🌾", stages: 3, growDays: 2, price: 12, seedCost: 4,  color: "#e8c86a", ripe: "#f5d97a" },
-    carrot:  { name: "Carrot",  emoji: "🥕", stages: 3, growDays: 3, price: 22, seedCost: 8,  color: "#ff8c3b", ripe: "#ff7a1f" },
-    pumpkin: { name: "Pumpkin", emoji: "🎃", stages: 4, growDays: 5, price: 60, seedCost: 20, color: "#ff9a3d", ripe: "#ff7d12" },
-  };
-
-  // ---------- State ----------
-  const state = {
-    coins: 0,
-    day: 1,
-    tool: "hoe",
-    seeds: { wheat: 3, carrot: 2, pumpkin: 1 },
-    // player in tile coords
-    px: 7, py: 7, dir: "down",
-    // per-tile: {tilled:false, watered:false, crop:null, planted:0, wateredDays:0}
-    tiles: [],
-    // walk animation
-    animT: 0,
-  };
-  for (let y = 0; y < ROWS; y++) {
-    const row = [];
-    for (let x = 0; x < COLS; x++) row.push({ tilled: false, watered: false, crop: null, planted: 0, grow: 0 });
-    state.tiles.push(row);
-  }
-
-  const canvas = document.getElementById("game");
-  const ctx = canvas.getContext("2d");
-  ctx.imageSmoothingEnabled = false;
-
-  // ---------- Helpers ----------
-  const $ = (id) => document.getElementById(id);
-  function toast(msg) {
-    const t = $("toast");
-    t.textContent = msg;
-    t.classList.add("show");
-    clearTimeout(toast._t);
-    toast._t = setTimeout(() => t.classList.remove("show"), 1400);
-  }
-  function updateHUD() {
-    $("coins").textContent = state.coins;
-    $("day").textContent = state.day;
-    $("seed-wheat").textContent = state.seeds.wheat;
-    $("seed-carrot").textContent = state.seeds.carrot;
-    $("seed-pumpkin").textContent = state.seeds.pumpkin;
-  }
-  function inBounds(x, y) { return x >= 0 && y >= 0 && x < COLS && y < ROWS; }
-  function frontTile() {
-    let x = state.px, y = state.py;
-    if (state.dir === "up") y--;
-    else if (state.dir === "down") y++;
-    else if (state.dir === "left") x--;
-    else if (state.dir === "right") x++;
-    return { x, y };
-  }
-
-  // ---------- Tool actions ----------
-  function useToolAt(x, y) {
-    if (!inBounds(x, y)) return;
-    const t = state.tiles[y][x];
-    const tool = state.tool;
-
-    if (tool === "hoe") {
-      if (t.crop) { toast("Something's growing here!"); return; }
-      if (t.tilled) { toast("Already tilled."); return; }
-      t.tilled = true;
-      toast("Tilled the soil. 🟫");
-    } else if (tool === "water") {
-      if (!t.tilled) { toast("Till the soil first."); return; }
-      if (t.watered) { toast("Already watered."); return; }
-      t.watered = true;
-      toast("Watered! 💧 Grows faster.");
-    } else if (tool === "harvest") {
-      if (t.crop && t.grow >= CROPS[t.crop].stages) {
-        const c = CROPS[t.crop];
-        state.coins += c.price;
-        toast(`Harvested ${c.name} ${c.emoji}  +${c.price} coins!`);
-        t.crop = null; t.grow = 0; t.tilled = false; t.watered = false; t.planted = 0;
-      } else if (t.crop) {
-        toast("Not ripe yet. Keep waiting!");
-      } else {
-        toast("Nothing to harvest.");
-      }
-    } else if (CROPS[tool]) {
-      // planting
-      if (!t.tilled) { toast("Till the soil first (⛏️)."); return; }
-      if (t.crop) { toast("Already planted here."); return; }
-      if (state.seeds[tool] <= 0) { toast(`No ${CROPS[tool].name} seeds! Buy some.`); return; }
-      state.seeds[tool]--;
-      t.crop = tool; t.grow = 0; t.planted = state.day;
-      toast(`Planted ${CROPS[tool].name} ${CROPS[tool].emoji}`);
-    }
-    updateHUD();
-  }
-
-  // ---------- Day cycle ----------
-  function nextDay() {
-    state.day++;
-    for (let y = 0; y < ROWS; y++) {
-      for (let x = 0; x < COLS; x++) {
-        const t = state.tiles[y][x];
-        if (t.crop) {
-          const c = CROPS[t.crop];
-          // grow: +1 stage per growDays days, watered = double growth that day
-          const inc = t.watered ? 2 : 1;
-          t._prog = (t._prog || 0) + inc;
-          const needed = c.growDays; // "progress" units per stage
-          while (t._prog >= needed && t.grow < c.stages) {
-            t._prog -= needed;
-            t.grow++;
-          }
-        }
-        t.watered = false; // dries overnight
-      }
-    }
-    toast(`☀️ Day ${state.day}! Crops grew.`);
-    updateHUD();
-  }
-
-  // ---------- Shop ----------
-  function openShop() {
-    const menu = `Buy seeds:\n` +
-      `1 = Wheat  (${CROPS.wheat.seedCost}c)\n` +
-      `2 = Carrot (${CROPS.carrot.seedCost}c)\n` +
-      `3 = Pumpkin(${CROPS.pumpkin.seedCost}c)\n\n` +
-      `Type 1, 2 or 3 (or cancel):`;
-    const pick = window.prompt(menu, "1");
-    if (pick == null) return;
-    const map = { "1": "wheat", "2": "carrot", "3": "pumpkin" };
-    const key = map[pick.trim()];
-    if (!key) { toast("Nothing bought."); return; }
-    const cost = CROPS[key].seedCost;
-    if (state.coins < cost) { toast(`Need ${cost} coins for ${CROPS[key].name}.`); return; }
-    state.coins -= cost;
-    state.seeds[key]++;
-    toast(`Bought 1 ${CROPS[key].name} seed. 🌱`);
-    updateHUD();
-  }
-
-  // ---------- Rendering ----------
-  function drawTile(x, y) {
-    const px = x * TILE, py = y * TILE;
-    const t = state.tiles[y][x];
-
-    // grass base with subtle checker
-    const g1 = "#5aa54a", g2 = "#54a044";
-    ctx.fillStyle = (x + y) % 2 === 0 ? g1 : g2;
-    ctx.fillRect(px, py, TILE, TILE);
-
-    // little grass tufts
-    ctx.fillStyle = "#67b657";
-    if (!t.tilled && !t.crop) {
-      const seed = (x * 7 + y * 13) % 5;
-      if (seed === 0) ctx.fillRect(px + 6, py + 20, 3, 3);
-      if (seed === 2) ctx.fillRect(px + 22, py + 8, 3, 3);
-    }
-
-    if (t.tilled) {
-      // soil
-      ctx.fillStyle = t.watered ? "#5a3a24" : "#7a5230";
-      ctx.fillRect(px + 3, py + 3, TILE - 6, TILE - 6);
-      // furrow lines
-      ctx.fillStyle = t.watered ? "#4a2f1d" : "#6a4526";
-      ctx.fillRect(px + 3, py + 11, TILE - 6, 2);
-      ctx.fillRect(px + 3, py + 20, TILE - 6, 2);
-    }
-
-    if (t.crop) drawCrop(px, py, t);
-
-    // tile border
-    ctx.strokeStyle = "rgba(0,0,0,0.12)";
-    ctx.lineWidth = 1;
-    ctx.strokeRect(px + 0.5, py + 0.5, TILE - 1, TILE - 1);
-  }
-
-  function drawCrop(px, py, t) {
-    const c = CROPS[t.crop];
-    const ripe = t.grow >= c.stages;
-    const stageFrac = Math.min(1, t.grow / c.stages);
-    const cx = px + TILE / 2;
-
-    if (t.grow === 0) {
-      // just-planted seedling: tiny sprout
-      ctx.fillStyle = "#3f7a2f";
-      ctx.fillRect(cx - 1, py + 22, 2, 6);
-      ctx.fillStyle = "#7ac142";
-      ctx.fillRect(cx - 3, py + 20, 2, 2);
-      ctx.fillRect(cx + 1, py + 20, 2, 2);
-      return;
-    }
-
-    const stalkH = 6 + Math.round(stageFrac * 16);
-    // stalk
-    ctx.fillStyle = "#3f7a2f";
-    ctx.fillRect(cx - 1, py + (28 - stalkH), 3, stalkH);
-    // leaves
-    ctx.fillStyle = "#66b33a";
-    ctx.fillRect(cx - 5, py + (28 - stalkH) + 3, 4, 2);
-    ctx.fillRect(cx + 2, py + (28 - stalkH) + 6, 4, 2);
-
-    // fruit / head
-    const col = ripe ? c.ripe : c.color;
-    if (t.crop === "wheat") {
-      ctx.fillStyle = col;
-      const topY = py + (28 - stalkH) - 2;
-      ctx.fillRect(cx - 3, topY, 6, 8);
-      if (ripe) {
-        ctx.fillStyle = "#fff2b0";
-        ctx.fillRect(cx - 3, topY, 6, 2);
-      }
-    } else if (t.crop === "carrot") {
-      if (ripe) {
-        ctx.fillStyle = col;
-        ctx.fillRect(cx - 3, py + 20, 6, 7);
-        ctx.fillRect(cx - 2, py + 27, 4, 3);
-      } else {
-        ctx.fillStyle = "#4c9a2e";
-        ctx.fillRect(cx - 4, py + 20, 8, 4);
-      }
-    } else if (t.crop === "pumpkin") {
-      const r = 4 + Math.round(stageFrac * 6);
-      ctx.fillStyle = col;
-      ctx.beginPath();
-      ctx.arc(cx, py + TILE - 8, r, 0, Math.PI * 2);
-      ctx.fill();
-      if (ripe) {
-        ctx.fillStyle = "#c85a12";
-        ctx.fillRect(cx - r, py + TILE - 8, r * 2, 1);
-        ctx.fillStyle = "#3f7a2f";
-        ctx.fillRect(cx - 1, py + TILE - 8 - r - 2, 2, 3);
-      }
-    }
-
-    if (ripe) {
-      // sparkle to signal harvestable
-      const s = (Math.sin(performance.now() / 200 + px) + 1) / 2;
-      ctx.fillStyle = `rgba(255,255,180,${0.4 + s * 0.5})`;
-      ctx.fillRect(px + TILE - 8, py + 4, 3, 3);
-    }
-  }
-
-  function drawPlayer() {
-    const bob = Math.sin(state.animT) * 1.5;
-    const px = state.px * TILE;
-    const py = state.py * TILE + bob;
-
-    // shadow
-    ctx.fillStyle = "rgba(0,0,0,0.25)";
-    ctx.beginPath();
-    ctx.ellipse(px + TILE / 2, py + TILE - 3, 9, 3, 0, 0, Math.PI * 2);
-    ctx.fill();
-
-    // body (overalls)
-    ctx.fillStyle = "#3a6ea5";
-    ctx.fillRect(px + 10, py + 16, 12, 12);
-    // shirt
-    ctx.fillStyle = "#d94f4f";
-    ctx.fillRect(px + 10, py + 13, 12, 5);
-    // head
-    ctx.fillStyle = "#f0c088";
-    ctx.fillRect(px + 11, py + 6, 10, 9);
-    // hat
-    ctx.fillStyle = "#c8a24a";
-    ctx.fillRect(px + 8, py + 4, 16, 3);
-    ctx.fillRect(px + 11, py + 1, 10, 3);
-
-    // eyes depend on facing
-    ctx.fillStyle = "#222";
-    if (state.dir === "left") {
-      ctx.fillRect(px + 12, py + 10, 2, 2);
-    } else if (state.dir === "right") {
-      ctx.fillRect(px + 18, py + 10, 2, 2);
-    } else if (state.dir === "up") {
-      // no eyes (back of head)
-      ctx.fillStyle = "#d8a878";
-      ctx.fillRect(px + 11, py + 6, 10, 9);
-    } else {
-      ctx.fillRect(px + 13, py + 10, 2, 2);
-      ctx.fillRect(px + 17, py + 10, 2, 2);
-    }
-
-    // facing indicator on front tile
-    const f = frontTile();
-    if (inBounds(f.x, f.y)) {
-      ctx.strokeStyle = "rgba(255,255,255,0.6)";
-      ctx.lineWidth = 2;
-      ctx.strokeRect(f.x * TILE + 2, f.y * TILE + 2, TILE - 4, TILE - 4);
-    }
-  }
-
-  function render() {
-    ctx.clearRect(0, 0, W, H);
-    for (let y = 0; y < ROWS; y++)
-      for (let x = 0; x < COLS; x++) drawTile(x, y);
-    drawPlayer();
-    requestAnimationFrame(render);
-  }
-
-  // ---------- Input ----------
-  function setTool(tool) {
-    state.tool = tool;
-    document.querySelectorAll(".tool[data-tool]").forEach((b) => {
-      b.classList.toggle("active", b.dataset.tool === tool);
-    });
-  }
-
-  function move(dx, dy, dir) {
-    state.dir = dir;
-    const nx = state.px + dx, ny = state.py + dy;
-    if (inBounds(nx, ny)) { state.px = nx; state.py = ny; }
-    state.animT += 0.9;
-  }
-
-  window.addEventListener("keydown", (e) => {
-    const k = e.key.toLowerCase();
-    if (["arrowup","arrowdown","arrowleft","arrowright"," "].includes(e.key.toLowerCase()) ||
-        ["w","a","s","d"].includes(k)) e.preventDefault();
-
-    if (k === "w" || e.key === "ArrowUp") move(0, -1, "up");
-    else if (k === "s" || e.key === "ArrowDown") move(0, 1, "down");
-    else if (k === "a" || e.key === "ArrowLeft") move(-1, 0, "left");
-    else if (k === "d" || e.key === "ArrowRight") move(1, 0, "right");
-    else if (k === " " || k === "e") { const f = frontTile(); useToolAt(f.x, f.y); }
-    else if (k === "1") setTool("hoe");
-    else if (k === "2") setTool("wheat");
-    else if (k === "3") setTool("carrot");
-    else if (k === "4") setTool("pumpkin");
-    else if (k === "5") setTool("water");
-    else if (k === "6") setTool("harvest");
-  });
-
-  document.querySelectorAll(".tool[data-tool]").forEach((b) => {
-    b.addEventListener("click", () => setTool(b.dataset.tool));
-  });
-  $("sleep").addEventListener("click", nextDay);
-  $("shop").addEventListener("click", openShop);
-
-  // click a tile to walk-face + use tool
-  canvas.addEventListener("click", (e) => {
-    const rect = canvas.getBoundingClientRect();
-    const scaleX = canvas.width / rect.width;
-    const scaleY = canvas.height / rect.height;
-    const mx = Math.floor(((e.clientX - rect.left) * scaleX) / TILE);
-    const my = Math.floor(((e.clientY - rect.top) * scaleY) / TILE);
-    if (!inBounds(mx, my)) return;
-    // face the clicked tile if adjacent, else act directly
-    if (mx === state.px && my === state.py - 1) state.dir = "up";
-    else if (mx === state.px && my === state.py + 1) state.dir = "down";
-    else if (mx === state.px - 1 && my === state.py) state.dir = "left";
-    else if (mx === state.px + 1 && my === state.py) state.dir = "right";
-    useToolAt(mx, my);
-  });
-
-  // ---------- Boot ----------
-  updateHUD();
-  toast("Welcome to your farm! Till → Plant → Water → Harvest.");
-  requestAnimationFrame(render);
-})();
-</script>
+<!-- ordered classic scripts (no build step; works from file://) -->
+<script src="js/config.js"></script>
+<script src="js/world.js"></script>
+<script src="js/inventory.js"></script>
+<script src="js/state.js"></script>
+<script src="js/crops.js"></script>
+<script src="js/shipping.js"></script>
+<script src="js/animals.js"></script>
+<script src="js/player.js"></script>
+<script src="js/render.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/input.js"></script>
+<script src="js/game.js"></script>
 </body>
 </html>
